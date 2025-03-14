@@ -1,1 +1,9 @@
 
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+SAMPLE_RATE = 44100
+RECORD_DURATION = 10
