@@ -1,49 +1,32 @@
-
-import sounddevice as sd
 import numpy as np
-import librosa
-import speech_recognition as sr
-from openai import OpenAI
-from config import OPENAI_API_KEY, SAMPLE_RATE, RECORD_DURATION
 
-class VoiceAnalyzer:
-    def __init__(self):
-        self.client = OpenAI(api_key=OPENAI_API_KEY)
-        self.baseline_features = None
-        self.recognizer = sr.Recognizer()
+class StressAnalyzer:
+    def __init__(self, voice_analyzer):
+        self.voice_analyzer = voice_analyzer
         
-    def record_voice(self):
-        print(f"Recording for {RECORD_DURATION} seconds...")
-        audio_data = sd.rec(int(RECORD_DURATION * SAMPLE_RATE),
-                          samplerate=SAMPLE_RATE,
-                          channels=1)
-        sd.wait()
-        return audio_data
-    
-    def extract_voice_features(self, audio_data):
-        audio_flat = audio_data.flatten()
+    def analyze_stress_levels(self, current_features):
+        if self.voice_analyzer.baseline_features is None:
+            raise ValueError("Baseline features not set")
+            
+        baseline = self.voice_analyzer.baseline_features
         
-        mfccs = librosa.feature.mfcc(y=audio_flat, sr=SAMPLE_RATE)
-        pitch = librosa.yin(audio_flat, fmin=80, fmax=880, sr=SAMPLE_RATE)
-        energy = np.sum(audio_flat**2) / len(audio_flat)
-        tempo, _ = librosa.beat.beat_track(y=audio_flat, sr=SAMPLE_RATE)
-        spectral_centroids = librosa.feature.spectral_centroid(y=audio_flat, sr=SAMPLE_RATE)
+        pitch_variation = np.mean(np.abs(current_features['pitch'] - baseline['pitch']))
+        energy_ratio = current_features['energy'] / baseline['energy']
+        mfcc_difference = np.mean(np.abs(current_features['mfccs'] - baseline['mfccs']))
+        tempo_change = abs(current_features['tempo'] - baseline['tempo']) / baseline['tempo']
+        
+        stress_score = (
+            pitch_variation * 0.3 +
+            energy_ratio * 0.3 +
+            mfcc_difference * 0.2 +
+            tempo_change * 0.2
+        )
+        
+        normalized_score = min(max(stress_score, 0), 1)
         
         return {
-            'mfccs': mfccs,
-            'pitch': pitch,
-            'energy': energy,
-            'tempo': tempo,
-            'spectral_centroids': spectral_centroids
+            'stress_score': normalized_score,
+            'pitch_variation': pitch_variation,
+            'energy_change': energy_ratio,
+            'rhythm_change': tempo_change
         }
-    
-    def get_text_from_audio(self, audio_data):
-        try:
-            audio_data_scaled = np.int16(audio_data * 32767)
-            audio = sr.AudioData(audio_data_scaled.tobytes(), SAMPLE_RATE, 2)
-            text = self.recognizer.recognize_google(audio)
-            return text
-        except sr.UnknownValueError:
-            return "Could not understand audio"
-        except sr.RequestError:
-            return "Error in speech recognition service"
