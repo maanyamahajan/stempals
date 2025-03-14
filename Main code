@@ -1,9 +1,49 @@
 
-from dotenv import load_dotenv
-import os
+import sounddevice as sd
+import numpy as np
+import librosa
+import speech_recognition as sr
+from openai import OpenAI
+from config import OPENAI_API_KEY, SAMPLE_RATE, RECORD_DURATION
 
-load_dotenv()
-
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-SAMPLE_RATE = 44100
-RECORD_DURATION = 10
+class VoiceAnalyzer:
+    def __init__(self):
+        self.client = OpenAI(api_key=OPENAI_API_KEY)
+        self.baseline_features = None
+        self.recognizer = sr.Recognizer()
+        
+    def record_voice(self):
+        print(f"Recording for {RECORD_DURATION} seconds...")
+        audio_data = sd.rec(int(RECORD_DURATION * SAMPLE_RATE),
+                          samplerate=SAMPLE_RATE,
+                          channels=1)
+        sd.wait()
+        return audio_data
+    
+    def extract_voice_features(self, audio_data):
+        audio_flat = audio_data.flatten()
+        
+        mfccs = librosa.feature.mfcc(y=audio_flat, sr=SAMPLE_RATE)
+        pitch = librosa.yin(audio_flat, fmin=80, fmax=880, sr=SAMPLE_RATE)
+        energy = np.sum(audio_flat**2) / len(audio_flat)
+        tempo, _ = librosa.beat.beat_track(y=audio_flat, sr=SAMPLE_RATE)
+        spectral_centroids = librosa.feature.spectral_centroid(y=audio_flat, sr=SAMPLE_RATE)
+        
+        return {
+            'mfccs': mfccs,
+            'pitch': pitch,
+            'energy': energy,
+            'tempo': tempo,
+            'spectral_centroids': spectral_centroids
+        }
+    
+    def get_text_from_audio(self, audio_data):
+        try:
+            audio_data_scaled = np.int16(audio_data * 32767)
+            audio = sr.AudioData(audio_data_scaled.tobytes(), SAMPLE_RATE, 2)
+            text = self.recognizer.recognize_google(audio)
+            return text
+        except sr.UnknownValueError:
+            return "Could not understand audio"
+        except sr.RequestError:
+            return "Error in speech recognition service"
