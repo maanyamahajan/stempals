@@ -1,32 +1,35 @@
+import pygame
 import numpy as np
+from scipy.io.wavfile import write
+import os
 
-class StressAnalyzer:
-    def __init__(self, voice_analyzer):
-        self.voice_analyzer = voice_analyzer
+class MusicGenerator:
+    def __init__(self):
+        pygame.mixer.init()
+        self.base_freq = 440
         
-    def analyze_stress_levels(self, current_features):
-        if self.voice_analyzer.baseline_features is None:
-            raise ValueError("Baseline features not set")
-            
-        baseline = self.voice_analyzer.baseline_features
+    def generate_calming_tones(self, stress_level):
+        duration = 5
+        sample_rate = 44100
+        t = np.linspace(0, duration, int(sample_rate * duration))
         
-        pitch_variation = np.mean(np.abs(current_features['pitch'] - baseline['pitch']))
-        energy_ratio = current_features['energy'] / baseline['energy']
-        mfcc_difference = np.mean(np.abs(current_features['mfccs'] - baseline['mfccs']))
-        tempo_change = abs(current_features['tempo'] - baseline['tempo']) / baseline['tempo']
+        freq = self.base_freq * (1 - stress_level * 0.3)
         
-        stress_score = (
-            pitch_variation * 0.3 +
-            energy_ratio * 0.3 +
-            mfcc_difference * 0.2 +
-            tempo_change * 0.2
-        )
+        waveform = np.sin(2 * np.pi * freq * t)
         
-        normalized_score = min(max(stress_score, 0), 1)
+        for i in range(2, 5):
+            waveform += 0.3 / i * np.sin(2 * np.pi * freq * i * t)
         
-        return {
-            'stress_score': normalized_score,
-            'pitch_variation': pitch_variation,
-            'energy_change': energy_ratio,
-            'rhythm_change': tempo_change
-        }
+        waveform = np.int16(waveform * 32767)
+        
+        write("temp_music.wav", sample_rate, waveform)
+        
+        return "temp_music.wav"
+    
+    def play_music(self, filename):
+        pygame.mixer.music.load(filename)
+        pygame.mixer.music.play()
+        
+    def cleanup(self):
+        if os.path.exists("temp_music.wav"):
+            os.remove("temp_music.wav")
