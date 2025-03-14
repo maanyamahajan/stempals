@@ -1,67 +1,8 @@
-from voice_analyzer import VoiceAnalyzer
-from stress_analyzer import StressAnalyzer
-from music_generator import MusicGenerator
-import time
-
-class MentalHealthVoiceApp:
-    def __init__(self):
-        self.voice_analyzer = VoiceAnalyzer()
-        self.stress_analyzer = StressAnalyzer(self.voice_analyzer)
-        self.music_generator = MusicGenerator()
-        
-    def initialize_baseline(self):
-        print("\nLet's record your baseline voice...")
-        print("Please speak normally about your day for 10 seconds")
-        input("Press Enter when ready...")
-        
-        audio_data = self.voice_analyzer.record_voice()
-        self.voice_analyzer.baseline_features = self.voice_analyzer.extract_voice_features(audio_data)
-        print("Baseline recorded successfully!")
-        
-    def analyze_current_state(self):
-        print("\nPlease speak about how you're feeling now...")
-        input("Press Enter when ready...")
-        
-        audio_data = self.voice_analyzer.record_voice()
-        current_features = self.voice_analyzer.extract_voice_features(audio_data)
-        text = self.voice_analyzer.get_text_from_audio(audio_data)
-        
-        analysis = self.stress_analyzer.analyze_stress_levels(current_features)
-        
-        response = self.voice_analyzer.client.chat.completions.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a mental health assistant. Analyze the following text and stress indicators to provide supportive feedback and suggestions."},
-                {"role": "user", "content": f"Text: {text}\nStress indicators: {analysis}"}
-            ]
-        )
-        
-        return analysis, response.choices[0].message.content
-    
-    def run(self):
-        try:
-            print("Welcome to Mental Health Voice Assistant")
-            self.initialize_baseline()
-            
-            while True:
-                analysis, ai_response = self.analyze_current_state()
-                
-                print("\nAnalysis Results:")
-                print(f"Stress Level: {analysis['stress_score']:.2f}")
-                print("\nAI Feedback:")
-                print(ai_response)
-                
-                print("\nGenerating calming tones based on your stress level...")
-                music_file = self.music_generator.generate_calming_tones(analysis['stress_score'])
-                self.music_generator.play_music(music_file)
-                
-                choice = input("\nWould you like to continue? (y/n): ")
-                if choice.lower() != 'y':
-                    break
-                
-        finally:
-            self.music_generator.cleanup()
-
-if __name__ == "__main__":
-    app = MentalHealthVoiceApp()
-    app.run()
+python-dotenv
+openai
+sounddevice
+numpy
+librosa
+SpeechRecognition
+pygame
+scipy
